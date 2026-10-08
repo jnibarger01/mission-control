@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { loadAcsOverview } from './overview'
 
 function response(body: unknown, status = 200) {
-  return { ok: status >= 200 && status < 300, json: async () => body } as Response
+  return { status, ok: status >= 200 && status < 300, json: async () => body } as Response
 }
 
 describe('ACS read-only overview projection', () => {
@@ -45,6 +45,16 @@ describe('ACS read-only overview projection', () => {
     expect(result.recentEvents).toEqual([{ name: 'policy.decided', time: null }])
     expect(JSON.stringify(result)).not.toContain('do-not-leak')
     expect(JSON.stringify(result)).not.toContain('read-secret')
+  })
+
+  it('reports a live ACS readiness HTTP 503 with JSON as degraded rather than unreachable', async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL) =>
+      String(input).endsWith('/readyz') ? response({ ok: false, checks: { executionAdmission: { ok: false } } }, 503)
+        : response({ error: 'unauthorized' }, 401)
+    ) as typeof fetch
+    const result = await loadAcsOverview(fetcher, { ACS_READ_TOKEN: 'read' })
+    expect(result.health).toBe('degraded')
+    expect(result.status).toBe('unavailable')
   })
 
   it('keeps failed or unauthorized reads unavailable rather than zero', async () => {

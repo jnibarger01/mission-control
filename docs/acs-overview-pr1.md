@@ -31,3 +31,15 @@ There is no live ACS SSE bridge, ACS operator identity federation, governed writ
 - Build and smoke-test using Node 22 in the isolated worktree.
 
 Neither port nor production service configuration is changed in this PR. Production deployment, merge and changes to ACS are explicitly excluded.
+
+## Live verification — 2026-10-08
+
+In an isolated test instance on port 3002, the server-side adapter was exercised against the live ACS gateway at port 3000 using an existing, transient, read-scoped ACS service credential. An isolated temporary Mission Control admin session was used and removed after the test. The test server was stopped, and ACS and the live Mission Control service were not restarted.
+
+- Health endpoint: HTTP 200; unauthenticated ACS Overview API: HTTP 401.
+- Authenticated ACS Overview API and page: HTTP 200.
+- Actual projection: 100 work items in the first page (1 running, 0 needing approval), 19 registered agents, execution mode admin, and 5 recent events.
+- ACS readiness returned HTTP 503 because execution admission was not ready. The adapter correctly reports *degraded* while preserving data and never claims health is ready.
+- Full Vitest suite passed: 1,586 tests (184 files); TypeScript, ESLint and production build passed.
+
+**Credential scope:** The tested read-only credential is shared with an existing ACS visualization service. It was supplied only to the temporary test process and was never persisted in the Mission Control repository. A separate, dedicated Mission Control credential has **not yet** been activated. ACS gateway credentials are loaded at startup, so a new static credential requires a coordinated gateway restart; do not interrupt active ACS work.

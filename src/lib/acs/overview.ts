@@ -23,7 +23,7 @@ function trustedBaseUrl(raw: string | undefined): string | null {
   } catch { return null }
 }
 
-async function readJson(fetcher: typeof fetch, base: string, path: string, token?: string): Promise<JsonObject | null> {
+async function readJson(fetcher: typeof fetch, base: string, path: string, token?: string, acceptDegraded = false): Promise<JsonObject | null> {
   try {
     const response = await fetcher(base + path, {
       method: 'GET',
@@ -32,7 +32,7 @@ async function readJson(fetcher: typeof fetch, base: string, path: string, token
       redirect: 'error',
       signal: AbortSignal.timeout(3000),
     })
-    if (!response.ok) return null
+    if (!response.ok && !(acceptDegraded && response.status === 503)) return null
     const body: unknown = await response.json()
     return isObject(body) ? body : null
   } catch { return null }
@@ -66,7 +66,7 @@ export async function loadAcsOverview(
   }
   if (!base) return { ...empty, message: 'ACS_BASE_URL must be a loopback HTTP address.' }
 
-  const health = await readJson(fetcher, base, '/readyz')
+  const health = await readJson(fetcher, base, '/readyz', undefined, true)
   const healthStatus: ACSOverview['health'] = health === null ? 'unavailable'
     : health.ok === true ? 'ready' : 'degraded'
 
